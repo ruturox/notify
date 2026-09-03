@@ -1,0 +1,11 @@
+{
+    "id": "Mika",
+    "rss_url": "https://hio.hs-niederrhein.de/qisserver/pages/cs/sys/portal/feed/portalMessagesFeed.faces?user=f17fbe41-3b77-438d-949f-37022efc6d71220d5ef7-0f1e-492e-b907-80f36258c7d1&hash=eb9a3dd7b57c0871d0fe01f620a6ec8d",
+    "ntfy_server": "https://ntfy.sh",
+    "ntfy_topic": "MikaHochschulnotenHSNR",
+    "seen_ids": {
+        "f2d1cc89-507a-4fad-9c3c-b91f96b47277": 1788439938,
+        "fd063b53-42ab-455a-b52e-0da83c251ccd": 1788439938,
+        "5262bab7-7d7f-4095-826e-1652b8f4d21a": 1788439938
+    }
+}

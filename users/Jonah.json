@@ -1,0 +1,12 @@
+{
+    "id": "Jonah",
+    "rss_url": "https://hio.hsnr.de/qisserver/pages/cs/sys/portal/feed/portalMessagesFeed.faces?user=6bda4bc4-7f95-4976-b6fc-551a6cb12120e409ce0e-4856-4ab2-9325-4b50a2082f43&hash=54a431199cd0e40c64ecb133aea5f489",
+    "ntfy_server": "https://ntfy.sh",
+    "ntfy_topic": "hsnr_noten_5467",
+    "seen_ids": {
+        "f2d1cc89-507a-4fad-9c3c-b91f96b47277": 1788439249,
+        "fd063b53-42ab-455a-b52e-0da83c251ccd": 1788439249,
+        "5262bab7-7d7f-4095-826e-1652b8f4d21a": 1788439249,
+        "a7be1144-52cd-447c-b964-f46d4dc2a597": 1788439938
+    }
+}

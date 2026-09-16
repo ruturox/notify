@@ -184,20 +184,38 @@ def handle_command(cmd_text):
     return "❓ Unbekannt. Sende 'help'."
 
 def ntfy_listener():
+    print(f"👂 ntfy-Listener aktiv auf Topic: {ADMIN_TOPIC}")
     url = f"{DEFAULT_NTFY}/{ADMIN_TOPIC}/json"
-    headers = {"Authorization": f"Bearer {os.environ['NTFY_TOKEN']}"} if os.environ.get('NTFY_TOKEN') else {}
+    token = os.environ.get('NTFY_TOKEN')
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
+
     while not stop_event.is_set():
         try:
             with requests.get(url, headers=headers, stream=True, timeout=60) as r:
                 for line in r.iter_lines():
-                    if stop_event.is_set(): break
+                    if stop_event.is_set(): 
+                        break
                     if line:
                         msg = json.loads(line)
                         if msg.get("event") == "message":
-                            res = handle_command(msg.get("message", "").strip())
-                            if res: requests.post(f"{DEFAULT_NTFY}/{ADMIN_TOPIC}", data=res.encode("utf-8"), headers=headers)
-        except Exception:
-            if not stop_event.is_set(): time.sleep(10)
+                            cmd = msg.get("message", "").strip()
+                            if cmd.startswith("[Server]"):
+                                continue 
+                            
+                            print(f"📩 Admin-Befehl empfangen: {cmd}")
+                            res = handle_command(cmd)
+                            
+                            if res:
+                                response_text = f"[Server] {res}"
+                                requests.post(
+                                    f"{DEFAULT_NTFY}/{ADMIN_TOPIC}", 
+                                    data=response_text.encode("utf-8"), 
+                                    headers=headers
+                                )
+        except Exception as e:
+            if not stop_event.is_set():
+                print(f"⚠️ Listener-Verbindung unterbrochen: {e}. Reconnect in 10s...")
+                time.sleep(10)
 
 if __name__ == "__main__":
     load_initial_data()

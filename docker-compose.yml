@@ -42,7 +42,6 @@ services:
       NTFY_SMTP_SENDER_USER: admin@derspuelmaschin.de
       NTFY_SMTP_SENDER_FROM: admin@derspuelmaschin.de
       NTFY_SMTP_SENDER_ADDR: smtp.strato.de:587
-      NTFY_ENABLE_SIGNUP: true
 
     user: "1001:1001"
 
@@ -77,9 +76,8 @@ services:
     environment:
       TZ: Europe/Berlin
       NTFY_TOKEN: tk_oyfn1nppx9gsztpfnfg2oz7z04kd4
+      NTFY_ADMIN_TOPIC: User
+      DEFAULT_NTFY: http://ntfy
 
     volumes:
       - /home/ubuntu/notify/users:/app/users
-
-    stdin_open: true
-    tty: true

@@ -115,7 +115,6 @@ def background_monitor():
             time.sleep(1)
 
 def handle_command(cmd_text):
-    """Verarbeitet Admin-Befehle. '-' überspringt Felder, 'none' setzt Optionals zurück."""
     parts = cmd_text.split()
     if not parts: return None
     action = parts[0].lower()
@@ -187,7 +186,7 @@ def ntfy_listener():
     print(f"👂 ntfy-Listener aktiv auf Topic: {ADMIN_TOPIC}")
     url = f"{DEFAULT_NTFY}/{ADMIN_TOPIC}/json"
     token = os.environ.get('NTFY_TOKEN')
-    headers = {"Authorization": f"Bearer {token}"} if token else {}
+    headers = {"Authorization": f"Bearer {token}", "Priority": "1"} if token else {"Priority": "1"}
 
     while not stop_event.is_set():
         try:
@@ -206,7 +205,7 @@ def ntfy_listener():
                             res = handle_command(cmd)
                             
                             if res:
-                                response_text = f"[Server] {res}"
+                                response_text = f"[Server]\n {res}"
                                 requests.post(
                                     f"{DEFAULT_NTFY}/{ADMIN_TOPIC}", 
                                     data=response_text.encode("utf-8"), 

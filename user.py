@@ -44,7 +44,7 @@ class User:
         server = self.ntfy_server if self.ntfy_server else default_server
         url = f"{server}/{self.ntfy_topic}"
         token = os.environ.get('NTFY_TOKEN')
-        headers = {"Title": f"Neue Note: {self.id}", "Priority": "high", "Tags": "mortar_board,bell"}
+        headers = {"Title": f"Neue Note: {self.id}", "Priority": "high", "Tags": "mortar_board,bell", "Actions": "view, Gehe zu hio, https://hio.hsnr.de/qisserver/pages/sul/examAssessment/personExamsReadonly.xhtml?_flowId=examsOverviewForPerson-flow"}
         if token: headers["Authorization"] = f"Bearer {token}"
         if self.email: headers["Email"] = self.email
             

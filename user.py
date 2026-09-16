@@ -49,7 +49,7 @@ class User:
         if self.email: headers["Email"] = self.email
             
         try:
-            resp = session.post(url, data=f"Fach: {subject}".encode("utf-8"), headers=headers, timeout=15)
+            resp = session.post(url, data=f"Fach: **{subject}**\n![some image](https://hio.hsnr.de/HISinOne/images/logos/hisinone_schriftzug_portal_hsnr.png)".encode("utf-8"), headers=headers, timeout=15)
             resp.raise_for_status()
             return True
         except Exception as e:

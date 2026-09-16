@@ -50,6 +50,7 @@ class User:
             
         try:
             resp = session.post(url, data=f"Fach: **{subject}**\n![some image](https://hio.hsnr.de/HISinOne/images/logos/hisinone_schriftzug_portal_hsnr.png)".encode("utf-8"), headers=headers, timeout=15)
+            print(f"✅ Push-Benachrichtigung für {self.id} gesendet ({subject}).")
             resp.raise_for_status()
             return True
         except Exception as e:

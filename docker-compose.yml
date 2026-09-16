@@ -1,0 +1,85 @@
+services:
+  caddy:
+    image: caddy:2
+    container_name: caddy
+    restart: unless-stopped
+
+    user: "1001:1001"
+
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+
+    volumes:
+      - /home/ubuntu/notify/caddy/Caddyfile:/etc/caddy/Caddyfile
+      - /home/ubuntu/notify/caddy/data:/data
+      - /home/ubuntu/notify/caddy/config:/config
+
+  ntfy:
+    image: binwiederhier/ntfy:latest
+    container_name: ntfy
+    restart: unless-stopped
+    init: true
+
+    command:
+      - serve
+
+    environment:
+      TZ: Europe/Berlin
+      NTFY_BASE_URL: https://ntfy.derspuelmaschin.de
+      NTFY_CACHE_FILE: /var/lib/ntfy/cache.db
+      NTFY_ATTACHMENT_CACHE_DIR: /var/lib/ntfy/attachments
+      NTFY_AUTH_FILE: /var/lib/ntfy/auth.db
+      NTFY_BEHIND_PROXY: true
+      NTFY_AUTH_DEFAULT_ACCESS: read-only
+      NTFY_AUTH_USERS: 'jonah:$2a$10$$GoCa2Gi/quh5Ev4s.FUTjeOG/rxCOEYBs/.rl/vLmBrcCEJjJtfJi:admin'
+      NTFY_AUTH_TOKENS: 'jonah:tk_oyfn1nppx9gsztpfnfg2oz7z04kd4'
+      NTFY_ENABLE_LOGIN: true
+      NTFY_UPSTREAM_BASE_URL: "https://ntfy.sh"
+      NTFY_SMTP_SENDER_VERIFY: true
+      NTFY_SMTP_SENDER_PASS: FickDeineMum
+      NTFY_SMTP_SENDER_USER: admin@derspuelmaschin.de
+      NTFY_SMTP_SENDER_FROM: admin@derspuelmaschin.de
+      NTFY_SMTP_SENDER_ADDR: smtp.strato.de:587
+      NTFY_ENABLE_SIGNUP: true
+
+    user: "1001:1001"
+
+    volumes:
+      - /home/ubuntu/notify/ntfy/data:/var/lib/ntfy
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -q --tries=1 -O - http://localhost:80/v1/health | grep -q '\"healthy\":true' || exit 1"
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  bot:
+    build:
+      context: .
+      dockerfile: BOT.Dockerfile
+    container_name: hsnr-noten-bot
+    restart: unless-stopped
+
+    depends_on:
+      caddy:
+        condition: service_started
+      ntfy:
+        condition: service_healthy
+
+    user: "1001:1001"
+
+    environment:
+      TZ: Europe/Berlin
+      NTFY_TOKEN: tk_oyfn1nppx9gsztpfnfg2oz7z04kd4
+
+    volumes:
+      - /home/ubuntu/notify/users:/app/users
+
+    stdin_open: true
+    tty: true

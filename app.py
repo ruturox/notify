@@ -6,11 +6,13 @@ import json
 import re
 import threading
 import tempfile
+from typing import Any
 
 USER_DIR = "users"
 CHECK_INTERVAL = 300
 GRACE_PERIOD = 86400
 REQUEST_TIMEOUT = 15
+DEFAULT_NTFY_SERVER = "http://ntfy"
 
 user_lock = threading.Lock()
 stop_event = threading.Event()
@@ -28,7 +30,7 @@ def extract_subject(title):
     return match.group(1) if match else title
 
 
-def load_user(file_path):
+def load_user(file_path) -> dict[str, Any] | None:
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -57,7 +59,6 @@ def save_user(user):
         print(f"❌ Fehler beim Speichern von {user_id}: {e}")
         return False
 
-
 def send_push(user, subject):
     url = f"{user['ntfy_server'].rstrip('/')}/{user['ntfy_topic']}"
     try:
@@ -65,6 +66,7 @@ def send_push(user, subject):
             url,
             data=f"Neue Note im Fach: {subject}".encode("utf-8"),
             headers={
+                "Authorization": f"Bearer {os.environ['NTFY_TOKEN']}",  # ← NEU
                 "Title": f"Hallo {user['id']}, neue Note!",
                 "Priority": "high",
                 "Tags": "mortar_board"
@@ -77,6 +79,7 @@ def send_push(user, subject):
     except Exception as e:
         print(f"❌ Push für {user['id']} fehlgeschlagen: {e}")
         return False
+
 
 
 def fetch_feed(rss_url):
@@ -96,7 +99,7 @@ def process_single_user(file_name, now_ts):
         has_changes = False
         rss_url = user.get("rss_url", "").strip()
         user_id = user.get("id", file_name.replace(".json", ""))
-        ntfy_server = user.get("ntfy_server", "https://ntfy.sh")
+        ntfy_server = user.get("ntfy_server", DEFAULT_NTFY_SERVER)
         ntfy_topic = user.get("ntfy_topic", "").strip()
 
         if not rss_url:
@@ -118,8 +121,6 @@ def process_single_user(file_name, now_ts):
             for entry in feed.entries:
                 msg_id = (
                     getattr(entry, "guid", None)
-                    or getattr(entry, "id", None)
-                    or getattr(entry, "link", None)
                 )
 
                 if not msg_id:
@@ -199,7 +200,9 @@ def add_user_ui():
         return
 
     u_url = input("RSS-URL: ").strip()
-    u_server = input("ntfy-Server (Enter für https://ntfy.sh): ").strip() or "https://ntfy.sh"
+    u_server = input(
+        f"ntfy-Server (Enter für {DEFAULT_NTFY_SERVER}): "
+    ).strip() or DEFAULT_NTFY_SERVER
     u_topic = input("ntfy-Topic: ").strip()
 
     if not u_url or not u_topic:

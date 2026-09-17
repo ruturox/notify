@@ -114,108 +114,105 @@ def background_monitor():
             if stop_event.is_set(): break
             time.sleep(1)
 
+def bereinige(args, anzahl, start_index=1):
+    return tuple(
+        None if (start_index + i) >= len(args) 
+        or args[start_index + i] is None 
+        or args[start_index + i].strip() == "-" 
+        else args[start_index + i].strip() 
+        for i in range(anzahl)
+    )
+
+URL_REGEX = re.compile(
+    r"^https://(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,63}"
+    r"(?:/[a-zA-Z0-9._~!$&'()*+,;=:@%-]*)*"
+    r"(?:\?[a-zA-Z0-9._~!$&'()*+,;=:@%/?-]*)?"
+    r"$"
+)
+SERVER_REGEX = re.compile(
+    r"^https://(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,63}"
+    r"$"
+)
+TOPIC_REGEX = re.compile(r"^[a-zA-Z0-9_-]{10,}$")
+EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
+
+def validate_user_params(url, topic, email, server, edit=False):
+    if url:
+        if not URL_REGEX.match(url):
+            return False, "❌ Ungültige RSS-URL (Format: http(s)://domain.de/pfad)"
+    if topic:
+        if not TOPIC_REGEX.match(topic):
+            return False, "❌ NTFY-Topic ungültig (min. 10 Zeichen, nur A-Z, 0-9, _, -)."
+    
+    if email:
+        if edit and email.lower() in ["none", "clear"]:
+            pass
+        elif not EMAIL_REGEX.match(email):
+            return False, "❌ Ungültige E-Mail-Adresse."
+    
+    if server:
+        if edit and server.lower() in ["none", "clear"]:
+            pass
+        elif not SERVER_REGEX.match(server):
+            return False, "❌ Ungültige Server-URL (Format: http(s)://domain.de)"
+            
+    return True, None
+
 def handle_command(cmd_text):
     parts = cmd_text.split()
     if not parts: return None
     action = parts[0].lower()
-
+    
     with user_lock:
         try:
             if action == "add" and len(parts) >= 4:
-                u_id = User.sanitize_id(parts[1].strip())
-                if not u_id:
-                    return "❌ User-ID darf nicht leer sein."
-
-                if u_id in active_users:
-                    return f"❌ User '{u_id}' existiert bereits!"
-
-                if u_id.lower() in {"user", "email", "-"}:
-                    return "❌ Unerlaubter Name."
-
-                rss_url = parts[2].strip()
-                ntfy_topic = parts[3].strip()
-
-                if not rss_url or rss_url == "-" or not ntfy_topic or ntfy_topic == "-":
-                    return "❌ Pflichtfelder dürfen nicht leer sein."
-
-                if not (rss_url.startswith("https://") or rss_url.startswith("http://")):
-                    return "❌ RSS-Adresse muss mit http:// oder https:// beginnen."
-
-                if " " in rss_url:
-                    return "❌ RSS-Adresse darf keine Leerzeichen enthalten."
-
-                if "/" in ntfy_topic:
-                    return "❌ NTFY-Topic darf kein '/' enthalten."
-
-                if " " in ntfy_topic:
-                    return "❌ NTFY-Topic darf keine Leerzeichen enthalten."
-
-                email = parts[4].strip() if len(parts) > 4 and parts[4].strip() != "-" else None
-
-                if email:
-                    if " " in email:
-                        return "❌ E-Mail darf keine Leerzeichen enthalten."
-
-                    if email.count("@") != 1:
-                        return "❌ Ungültige E-Mail-Adresse."
-
-                    local, domain = email.split("@")
-
-                    if not local or not domain:
-                        return "❌ Ungültige E-Mail-Adresse."
-
-                    if "." not in domain:
-                        return "❌ Ungültige E-Mail-Adresse."
-
-                    if domain.startswith(".") or domain.endswith("."):
-                        return "❌ Ungültige E-Mail-Adresse."
-
-                server = parts[5].strip() if len(parts) > 5 and parts[5].strip() != "-" else None
-
-                if server:
-                    if not (server.startswith("https://") or server.startswith("http://")):
-                        return "❌ NTFY-Server muss mit http:// oder https:// beginnen."
-
-                    if " " in server:
-                        return "❌ NTFY-Server darf keine Leerzeichen enthalten."
-
-                    if server.endswith("/"):
-                        server = server.rstrip("/")
-
-                new_u = User(
-                    id=u_id,
-                    rss_url=rss_url,
-                    ntfy_topic=ntfy_topic,
-                    email=email,
-                    ntfy_server=server
-                )
-
-                new_u.has_changes = True
+                u_id = User.sanitize_id(parts[1])
+                if not u_id: return "❌ User-ID darf nicht leer sein."
+                if u_id in active_users: return f"❌ User '{u_id}' existiert bereits!"
+            
+                rss_url, ntfy_topic, email, server = bereinige(parts, 4, start_index=2)
+                
+                if not rss_url or not ntfy_topic:
+                    return "❌ Pflichtfelder (URL & Topic) dürfen nicht leer sein."
+                
+                is_valid, err = validate_user_params(rss_url, ntfy_topic, email, server)
+                if not is_valid: return err
+                
+                new_u = User(id=u_id, rss_url=rss_url, ntfy_topic=ntfy_topic, 
+                             email=email, ntfy_server=server)
                 active_users[u_id] = new_u
-
                 save_user_to_disk(new_u, force=True)
-
-                return f"✅ User '{u_id}' angelegt (Server: {server or 'Default'})."
-
+                return f"✅ User '{u_id}' angelegt."
             elif action == "edit" and len(parts) >= 2:
                 u_id = User.sanitize_id(parts[1])
                 if u_id not in active_users: return f"❌ User '{u_id}' nicht gefunden."
-                
                 u = active_users[u_id]
-                if len(parts) > 2 and parts[2] != "-": u.rss_url = parts[2]; u.has_changes = True
-                if len(parts) > 3 and parts[3] != "-": u.ntfy_topic = parts[3]; u.has_changes = True
                 
-                if len(parts) > 4 and parts[4] != "-":
-                    u.email = None if parts[4].lower() in ["none", "clear"] else parts[4]
-                    u.has_changes = True
+                new_url, new_topic, new_email, new_server = bereinige(parts, 4, start_index=2)
                 
-                if len(parts) > 5 and parts[5] != "-":
-                    u.ntfy_server = None if parts[5].lower() in ["none", "default"] else parts[5]
-                    u.has_changes = True
+                is_valid, err = validate_user_params(new_url, new_topic, new_email, new_server, True)
+                if not is_valid: return err
+                
+                if new_url: u.rss_url = new_url
+                if new_topic: u.ntfy_topic = new_topic
+                
+                if new_email:
+                    u.email = None if new_email.lower() in ["none", "clear"] else new_email
+                
+                if new_server:
+                    u.ntfy_server = None if new_server.lower() in ["none", "clear"] else new_server
                 
                 save_user_to_disk(u, force=True)
                 return f"✅ User '{u_id}' aktualisiert."
-            
+            elif action == "view" and len(parts) >= 2:
+                u_id = User.sanitize_id(parts[1])
+                if u_id not in active_users: return f"❌ User '{u_id}' nicht gefunden."
+                u = active_users[u_id]
+                return (f"👤 **User-Profil: {u.id}**\n"
+                        f"🌐 RSS: `{u.rss_url}`\n"
+                        f"📢 Topic: `{u.ntfy_topic}`\n"
+                        f"📧 Email: `{u.email or '---'}`\n"
+                        f"🖥️ Server: `{u.ntfy_server or 'Default'}`")
             elif action == "delete" and len(parts) >= 2:
                 u_id = User.sanitize_id(parts[1])
                 if u_id in active_users:
@@ -224,20 +221,18 @@ def handle_command(cmd_text):
                     if os.path.exists(path): os.remove(path)
                     return f"🗑️ User '{u_id}' gelöscht."
                 return f"❌ User '{u_id}' nicht gefunden."
-
             elif action == "list":
                 return f"👥 Nutzer: {', '.join(active_users.keys()) if active_users else 'Keine'}"
-
             elif action == "help":
-                return ("📖 add [id] [url] [topic] [email?] [server?]\n"
-                        "📖 edit [id] [url] [topic] [email?] [server?]\n"
-                        "   (Nutze '-' zum Überspringen, 'none' zum Löschen)\n"
-                        "📖 delete [id]\n"
-                        "📖 list")
-                        
+                return ("📖 **Befehle:**\n"
+                        "• `add [id] [url] [topic] [email?] [server?]` - Neu anlegen\n"
+                        "• `edit [id] [url] [topic] [email?] [server?]` - Ändern (`-` zum Überspringen)\n"
+                        "• `view [id]` - Details anzeigen\n"
+                        "• `delete [id]` - Löschen\n"
+                        "• `list` - Alle IDs zeigen")
         except Exception as e:
-            return f"❌ Fehler: {e}"
-    return "❓ Unbekannt. Sende 'help'."
+            return f"❌ Systemfehler: {e}"
+    return "❓ Unbekannter Befehl. Sende 'help'."
 
 def ntfy_listener():
     print(f"👂 ntfy-Listener aktiv auf Topic: {ADMIN_TOPIC}")

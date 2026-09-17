@@ -42,6 +42,7 @@ services:
       NTFY_SMTP_SENDER_USER: admin@derspuelmaschin.de
       NTFY_SMTP_SENDER_FROM: admin@derspuelmaschin.de
       NTFY_SMTP_SENDER_ADDR: smtp.strato.de:587
+      NTFY_AUTH_ACCESS='*:email:deny,*:User:deny'
 
     user: "1001:1001"
 

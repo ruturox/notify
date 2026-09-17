@@ -1,7 +1,5 @@
 import os
-import json
 import re
-import time
 import requests
 from dataclasses import dataclass, field
 from typing import Optional
@@ -44,15 +42,28 @@ class User:
         server = self.ntfy_server if self.ntfy_server else default_server
         url = f"{server}/{self.ntfy_topic}"
         token = os.environ.get('NTFY_TOKEN')
-        headers = {"Title": f"Neue Note: {self.id}", "Priority": "high", "Tags": "mortar_board,bell", "Actions": "view, Gehe zu hio, https://hio.hsnr.de/qisserver/pages/sul/examAssessment/personExamsReadonly.xhtml?_flowId=examsOverviewForPerson-flow", "Markdown": "yes"}
+        headers = {"Title": f"Neue Note fuer {self.id}", "Priority": "high", "Tags": "mortar_board,bell", "Actions": "view, Gehe zu HiO, https://hio.hsnr.de/qisserver/pages/sul/examAssessment/personExamsReadonly.xhtml?_flowId=examsOverviewForPerson-flow", "Markdown": "yes"}
         if token: headers["Authorization"] = f"Bearer {token}"
-        if self.email: headers["Email"] = self.email
             
         try:
-            resp = session.post(url, data=f"Fach: **{subject}**\n![some image](https://hio.hsnr.de/HISinOne/images/logos/hisinone_schriftzug_portal_hsnr.png)".encode("utf-8"), headers=headers, timeout=15)
-            print(f"✅ Push-Benachrichtigung für {self.id} gesendet ({subject}).")
+            resp = session.post(url, data=f"## Fach: **{subject}** [HiO](https://hio.hsnr.de/qisserver/pages/sul/examAssessment/personExamsReadonly.xhtml?_flowId=examsOverviewForPerson-flow) ##\n![](https://hio.hsnr.de/HISinOne/images/logos/hisinone_schriftzug_portal_hsnr.png)".encode("utf-8"), headers=headers, timeout=15)
             resp.raise_for_status()
-            return True
-        except Exception as e:
+            print(f"✅ Push-Benachrichtigung für {self.id} gesendet ({subject}).")
+            if self.email:
+                resp = session.post(url,data=f"Fach: {subject} Lik zu HIO: (https://hio.hsnr.de/qisserver/pages/sul/examAssessment/personExamsReadonly.xhtml?_flowId=examsOverviewForPerson-flow)".encode("utf-8"), headers={"Title": f"Neue Note {self.id}", "Priority": "high", "Tags": "mortar_board,bell", "Email": self.email}, timeout=15)
+
+        except requests.RequestException as e:
             print(f"❌ [{self.id}] Push-Fehler: {e}")
             return False
+        url = f"{server}/email"
+        if self.email:
+            try:
+                headers = {"Title": f"Neue Note in {subject} fuer {self.id}", "Priority": "high","Tags": "mortar_board,bell", "Email": self.email}
+                if token: headers["Authorization"] = f"Bearer {token}"
+                resp = session.post(url,
+                                    data=f"Fach: {subject}\nHiO: https://hio.hsnr.de/qisserver/pages/sul/examAssessment/personExamsReadonly.xhtml?_flowId=examsOverviewForPerson-flow", headers=headers, timeout=15)
+                resp.raise_for_status()
+            except requests.RequestException as e:
+                print(f"❌ [{self.id}] Email-Fehler: {e}")
+
+        return True

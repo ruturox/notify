@@ -122,22 +122,79 @@ def handle_command(cmd_text):
     with user_lock:
         try:
             if action == "add" and len(parts) >= 4:
-                u_id = User.sanitize_id(parts[1])
-                if u_id in active_users: return f"❌ User '{u_id}' existiert bereits!"
-                
-                email = parts[4] if len(parts) > 4 and parts[4] != "-" else None
-                server = parts[5] if len(parts) > 5 and parts[5] != "-" else None
-                
+                u_id = User.sanitize_id(parts[1].strip())
+                if not u_id:
+                    return "❌ User-ID darf nicht leer sein."
+
+                if u_id in active_users:
+                    return f"❌ User '{u_id}' existiert bereits!"
+
+                if u_id.lower() in {"user", "email", "-"}:
+                    return "❌ Unerlaubter Name."
+
+                rss_url = parts[2].strip()
+                ntfy_topic = parts[3].strip()
+
+                if not rss_url or rss_url == "-" or not ntfy_topic or ntfy_topic == "-":
+                    return "❌ Pflichtfelder dürfen nicht leer sein."
+
+                if not (rss_url.startswith("https://") or rss_url.startswith("http://")):
+                    return "❌ RSS-Adresse muss mit http:// oder https:// beginnen."
+
+                if " " in rss_url:
+                    return "❌ RSS-Adresse darf keine Leerzeichen enthalten."
+
+                if "/" in ntfy_topic:
+                    return "❌ NTFY-Topic darf kein '/' enthalten."
+
+                if " " in ntfy_topic:
+                    return "❌ NTFY-Topic darf keine Leerzeichen enthalten."
+
+                email = parts[4].strip() if len(parts) > 4 and parts[4].strip() != "-" else None
+
+                if email:
+                    if " " in email:
+                        return "❌ E-Mail darf keine Leerzeichen enthalten."
+
+                    if email.count("@") != 1:
+                        return "❌ Ungültige E-Mail-Adresse."
+
+                    local, domain = email.split("@")
+
+                    if not local or not domain:
+                        return "❌ Ungültige E-Mail-Adresse."
+
+                    if "." not in domain:
+                        return "❌ Ungültige E-Mail-Adresse."
+
+                    if domain.startswith(".") or domain.endswith("."):
+                        return "❌ Ungültige E-Mail-Adresse."
+
+                server = parts[5].strip() if len(parts) > 5 and parts[5].strip() != "-" else None
+
+                if server:
+                    if not (server.startswith("https://") or server.startswith("http://")):
+                        return "❌ NTFY-Server muss mit http:// oder https:// beginnen."
+
+                    if " " in server:
+                        return "❌ NTFY-Server darf keine Leerzeichen enthalten."
+
+                    if server.endswith("/"):
+                        server = server.rstrip("/")
+
                 new_u = User(
-                    id=u_id, 
-                    rss_url=parts[2], 
-                    ntfy_topic=parts[3], 
+                    id=u_id,
+                    rss_url=rss_url,
+                    ntfy_topic=ntfy_topic,
                     email=email,
                     ntfy_server=server
                 )
+
                 new_u.has_changes = True
                 active_users[u_id] = new_u
+
                 save_user_to_disk(new_u, force=True)
+
                 return f"✅ User '{u_id}' angelegt (Server: {server or 'Default'})."
 
             elif action == "edit" and len(parts) >= 2:
@@ -186,7 +243,7 @@ def ntfy_listener():
     print(f"👂 ntfy-Listener aktiv auf Topic: {ADMIN_TOPIC}")
     url = f"{DEFAULT_NTFY}/{ADMIN_TOPIC}/json"
     token = os.environ.get('NTFY_TOKEN')
-    headers = {"Authorization": f"Bearer {token}", "Priority": "1"} if token else {"Priority": "1"}
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
 
     while not stop_event.is_set():
         try:
@@ -206,6 +263,7 @@ def ntfy_listener():
                             
                             if res:
                                 response_text = f"[Server]\n {res}"
+                                headers["Priority"] = "1"
                                 requests.post(
                                     f"{DEFAULT_NTFY}/{ADMIN_TOPIC}", 
                                     data=response_text.encode("utf-8"), 
